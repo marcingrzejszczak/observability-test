@@ -13,7 +13,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
 import org.springframework.observability.tracing.Tracer;
-import org.springframework.observability.tracing.brave.bridge.BraveBaggageManager;
 import org.springframework.observability.tracing.brave.bridge.BraveTracer;
 import org.springframework.observability.tracing.reporter.zipkin.RestTemplateSender;
 import org.springframework.web.client.RestTemplate;
@@ -22,22 +21,24 @@ import org.springframework.web.client.RestTemplate;
 public class ObservabilityTestApplication {
 
 	public static void main(String[] args) throws IOException {
-		AsyncReporter<Span> reporter = asyncReporter();
+		AsyncReporter<Span> reporter = AsyncReporter
+				.builder(new RestTemplateSender(new RestTemplate(), "http://localhost:9411/", null, SpanBytesEncoder.JSON_V2))
+				.build();
 		Tracing tracing = Tracing.newBuilder()
 				.addSpanHandler(ZipkinSpanHandler.newBuilder(reporter).build())
 				.sampler(Sampler.ALWAYS_SAMPLE)
 				.build();
-		Tracer tracer = new BraveTracer(tracing.tracer(), new BraveBaggageManager());
-		new SpringApplicationBuilder(ObservabilityTestApplication.class)
-				.applicationStartup(new ObservabilityApplicationStartup(tracer))
-				.run(args);
-		reporter.flush();
-		reporter.close();
-	}
-
-	private static AsyncReporter<Span> asyncReporter() {
-		AsyncReporter<Span> asyncReporter = AsyncReporter.builder(new RestTemplateSender(new RestTemplate(), "http://localhost:9411/", null, SpanBytesEncoder.JSON_V2)).build();
-		return asyncReporter;
+		Tracer tracer = new BraveTracer(tracing.tracer());
+		ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(tracer);
+		try {
+			new SpringApplicationBuilder(ObservabilityTestApplication.class)
+					.applicationStartup(observabilityApplicationStartup)
+					.run(args);
+		} finally {
+			observabilityApplicationStartup.endRootSpan();
+			reporter.flush();
+			reporter.close();
+		}
 	}
 
 }
