@@ -17,6 +17,7 @@ import zipkin2.reporter.brave.ZipkinSpanHandler;
 
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
 import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
 import org.springframework.observability.event.SimpleRecorder;
 import org.springframework.observability.event.listener.composite.CompositeRecordingListener;
@@ -32,6 +33,12 @@ import org.springframework.web.client.RestTemplate;
 public class ObservabilityTestApplication {
 
 	public static void main(String[] args) throws IOException {
+		new SpringApplicationBuilder(ObservabilityTestApplication.class)
+				.applicationStartup(new BufferingApplicationStartup(10_000))
+				.run(args);
+	}
+
+	public static void manual(String[] args) throws IOException {
 		AsyncReporter<Span> reporter = reporter();
 		Tracer tracer = tracer(reporter);
 		MeterRegistry meterRegistry = meterRegistry();
