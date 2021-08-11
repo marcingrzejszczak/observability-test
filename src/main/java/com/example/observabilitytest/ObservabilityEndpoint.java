@@ -54,6 +54,7 @@ public class ObservabilityEndpoint {
 			return;
 		}
 
+		// this should be immutable
 		Map<Long, Node> stepMap = startupTimeline.getEvents().stream()
 				.map(Node::new)
 				.collect(toMap(node -> node.startupStep.getId(), Function.identity()));
@@ -112,7 +113,7 @@ public class ObservabilityEndpoint {
 		String name = node.startupStep.getName();
 		IntervalRecording<?> recording = recorder.recordingFor(new IntervalEvent() {
 			@Override
-			public String getName() {
+			public String getLowCardinalityName() {
 				return nameFromEvent(name);
 			}
 
@@ -128,12 +129,14 @@ public class ObservabilityEndpoint {
 				String key = tag.getKey();
 				String value = tag.getValue();
 				if (key.equals("beanName") || key.equals("postProcessor")) {
-					recording.name(EventNameUtil.toLowerHyphen(name(value)));
+					recording.highCardinalityName(EventNameUtil.toLowerHyphen(name(value)));
 				}
 				recording.tag(org.springframework.observability.event.tag.Tag.of(EventNameUtil.toLowerHyphen(key), value, Cardinality.HIGH));
 			}
 		}
 
+		// add filtering over duration otherwise the graph can blow up
+		// maybe merge manually various children
 		for (Node child : node.children) {
 			visit(child);
 		}
