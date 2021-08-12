@@ -122,7 +122,7 @@ public class ObservabilityEndpoint {
 				return "";
 			}
 		}).tag(org.springframework.observability.event.tag.Tag.of("event", name, Cardinality.HIGH))
-				.start(node.startTimeNanos);
+				.start(node.startTimeNanos, node.startTimeNanos);
 		StartupStep.Tags tags = node.startupStep.getTags();
 		if (tags != null) {
 			for (StartupStep.Tag tag : tags) {

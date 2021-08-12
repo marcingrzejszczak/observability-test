@@ -1,0 +1,68 @@
+
+= HTTP CLIENT NOTES
+
+// GET /foo
+		// http.client.request
+			// tag -> method
+
+		// METRICS
+			// search NAME: "http.client.request" = "FOO" && tag: "method" = "GET"
+			// search NAME: "http.client.request" = "FOO" && tag: "http.method" = "GET"
+		// SPAN
+			// TAG: "method" = "GET"
+			// TAG: "http.method" = "GET"
+
+		// search NAME: "http.client.request" = "FOO" && tag: "http.method" = "GET"
+		// TAG: "http.method" = "GET"
+
+		// PROS: less code to maintain, less things to learn, faster to work with
+		// CONS: duplicated information on the metrics side
+
+
+		/*
+
+		OTel Java
+			http.method.name
+				Metrics -> http.method.name
+
+		Brave Java
+			http.method
+				Micrometer -> method
+
+		Spring Observability with OTel
+			http.method.name
+				Metrics -> http.method.name
+
+		Spring Observability with Brave
+			http.method
+				Metrics -> http.method
+
+		Spring Observability with Brave and OTel tag provider (BEAN)
+			rename http.method to http.method.name
+				Metrics -> http.method.name
+
+		 */
+
+
+
+
+		// Brave
+//		intervalRecording.tag(Tag.of("http.method", req.getMethodValue(), Cardinality.LOW));
+		// OTel
+//		intervalRecording.tag(Tag.of("http.method.name", req.getMethodValue(), Cardinality.LOW));
+
+		// httpClientIntervalRecordingCustomizer.customize(intervalRecording);
+
+		// default impl Brave: intervalRecording.tag(Tag.of("http.method", req.getMethodValue(), Cardinality.LOW));
+
+		// default impl OTel: intervalRecording.tag(Tag.of("http.method.name", req.getMethodValue(), Cardinality.LOW));
+
+		// check if there's a prefix and remove it
+			// http.method -> method
+		// OPTION 1
+			// disable the defaults in Brave -> brave-http is on the classpath
+			//  removing brave-http from the classpath
+			// OTEL? can we even disable the defaults? we should remove otel-java-instrumentation NOT GA -> otel-java GA tracing
+		// OPTION 2
+			// we provide a interface for setting tags
+				// a default for OTel and a default for Brave and we have to consider micrometer

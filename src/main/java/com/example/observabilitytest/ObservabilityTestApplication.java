@@ -19,16 +19,15 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
-import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
-import org.springframework.observability.event.SimpleRecorder;
-import org.springframework.observability.event.listener.composite.RunAllCompositeRecordingListener;
-import org.springframework.observability.micrometer.listener.MicrometerRecordingListener;
-import org.springframework.observability.time.Clock;
+//import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
+//import org.springframework.observability.event.SimpleRecorder;
+//import org.springframework.observability.event.listener.composite.AllMatchingCompositeRecordingListener;
+//import org.springframework.observability.micrometer.listener.MicrometerRecordingListener;
+//import org.springframework.observability.time.Clock;
 import org.springframework.observability.tracing.Tracer;
 import org.springframework.observability.tracing.brave.bridge.BraveTracer;
-import org.springframework.observability.tracing.listener.DefaultTracingRecordingListener;
+//import org.springframework.observability.tracing.listener.DefaultTracingRecordingListener;
 import org.springframework.observability.tracing.reporter.zipkin.RestTemplateSender;
 import org.springframework.web.client.RestTemplate;
 
@@ -61,18 +60,18 @@ public class ObservabilityTestApplication {
 		AsyncReporter<Span> reporter = reporter();
 		Tracer tracer = tracer(reporter);
 		MeterRegistry meterRegistry = meterRegistry();
-		ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(
+		/*ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(
 				new SimpleRecorder<>(
-						new RunAllCompositeRecordingListener(
+						new AllMatchingCompositeRecordingListener(
 								new DefaultTracingRecordingListener(tracer), new MicrometerRecordingListener(meterRegistry))
-						, Clock.SYSTEM));
+						, Clock.SYSTEM));*/
 		try {
 			new SpringApplicationBuilder(ObservabilityTestApplication.class)
-					.applicationStartup(observabilityApplicationStartup)
+//					.applicationStartup(observabilityApplicationStartup)
 					.run(args);
 		}
 		finally {
-			observabilityApplicationStartup.endRootRecording();
+//			observabilityApplicationStartup.endRootRecording();
 			reporter.flush();
 			reporter.close();
 		}
