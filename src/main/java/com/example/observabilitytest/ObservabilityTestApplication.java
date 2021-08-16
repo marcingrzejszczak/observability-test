@@ -43,10 +43,10 @@ public class ObservabilityTestApplication {
 	@Bean
 	CommandLineRunner myCommandLineRunner(RestTemplate restTemplate) {
 		return args -> {
-			String object = restTemplate.getForObject("https://httpbin.org/headers", String.class);
+			/*String object = restTemplate.getForObject("https://httpbin.org/headers", String.class);
 			if (!object.contains("B3")) {
 				throw new IllegalStateException("No B3 header propagated");
-			}
+			}*/
 		};
 	}
 

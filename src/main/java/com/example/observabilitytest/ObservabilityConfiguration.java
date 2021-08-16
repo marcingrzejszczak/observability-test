@@ -1,7 +1,6 @@
 package com.example.observabilitytest;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -22,7 +21,6 @@ import zipkin2.reporter.brave.ZipkinSpanHandler;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.autoconfigure.metrics.MetricsProperties;
 import org.springframework.boot.actuate.autoconfigure.metrics.OnlyOnceLoggingDenyMeterFilter;
-import org.springframework.boot.actuate.metrics.web.servlet.WebMvcMetricsFilter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
@@ -38,8 +36,7 @@ import org.springframework.observability.event.listener.RecordingListener;
 import org.springframework.observability.event.listener.composite.AllMatchingCompositeRecordingListener;
 import org.springframework.observability.event.listener.composite.CompositeRecordingListener;
 import org.springframework.observability.event.listener.composite.FirstMatchingCompositeRecordingListener;
-import org.springframework.observability.event.tag.Cardinality;
-import org.springframework.observability.event.tag.Tag;
+import org.springframework.observability.micrometer.listener.MetricsRecordingListener;
 import org.springframework.observability.micrometer.listener.MicrometerRecordingListener;
 import org.springframework.observability.time.Clock;
 import org.springframework.observability.tracing.CurrentTraceContext;
@@ -56,11 +53,14 @@ import org.springframework.observability.tracing.listener.HttpServerTracingRecor
 import org.springframework.observability.tracing.listener.TracingRecordingListener;
 import org.springframework.observability.tracing.reporter.zipkin.RestTemplateSender;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.observability.DefaultObservabilityClientHttpRequestInterceptorTagsProvider;
 import org.springframework.web.client.observability.ObservabilityClientHttpRequestInterceptor;
 import org.springframework.web.client.observability.ObservabilityClientHttpRequestInterceptorTagsProvider;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.observability.DefaultWebMvcTagsProvider;
+import org.springframework.web.servlet.mvc.observability.HandlerParser;
+import org.springframework.web.servlet.mvc.observability.RecordingCustomizingHandlerInterceptor;
 import org.springframework.web.servlet.mvc.observability.WebMvcTagsContributor;
 import org.springframework.web.servlet.mvc.observability.WebMvcTagsProvider;
 import org.springframework.web.servlet.mvc.observability.WebMvcObservabilityFilter;
@@ -123,9 +123,24 @@ public class ObservabilityConfiguration {
 	}
 
 	@Bean
+	FirstMatchingCompositeRecordingListener metricsFirstMatchingRecordingListeners(List<MetricsRecordingListener<?>> metricsRecordingListeners) {
+		return new FirstMatchingCompositeRecordingListener(metricsRecordingListeners);
+	}
+
+	@Bean
+	@Order
 	MicrometerRecordingListener micrometerRecordingListener(MeterRegistry meterRegistry) {
 		return new MicrometerRecordingListener(meterRegistry);
 	}
+
+
+	// FirstMatching -> Tracing
+		// HttpClient
+		// HttpServer
+		// Default
+	// FirstMatching -> Metrics
+		// OpenFeignMetrics
+		// Default
 }
 
 @Configuration
@@ -211,16 +226,7 @@ class InstrumentationHttpClientConfiguration {
 
 	@Bean
 	ObservabilityClientHttpRequestInterceptorTagsProvider observabilityClientHttpRequestInterceptorTagsProvider() {
-		return (urlTemplate, request, response) -> {
-			List<Tag> tags = new ArrayList<>(Arrays.asList(
-					Tag.of("http.method", request.method(), Cardinality.LOW),
-					Tag.of("http.status_code", String.valueOf(response.statusCode()), Cardinality.LOW))
-			);
-			if (request.path() != null) {
-				tags.add(Tag.of("http.path", request.path(), Cardinality.LOW));
-			}
-			return tags;
-		};
+		return new DefaultObservabilityClientHttpRequestInterceptorTagsProvider();
 	}
 }
 
@@ -258,33 +264,46 @@ class InstrumentationHttpServerConfiguration {
 		String metricName = this.properties.getWeb().getServer().getRequest().getMetricName();
 		MeterFilter filter = new OnlyOnceLoggingDenyMeterFilter(
 				() -> String.format("Reached the maximum number of URI tags for '%s'.", metricName));
+		// http.uri must be pushed to a constant
 		return MeterFilter.maximumAllowableTags(metricName, "http.uri", this.properties.getWeb().getServer().getMaxUriTags(),
 				filter);
 	}
 
 	@Bean
-	public MetricsWebMvcConfigurer metricsWebMvcConfigurer(MeterRegistry meterRegistry,
-			WebMvcTagsProvider tagsProvider) {
-		return new MetricsWebMvcConfigurer(meterRegistry, tagsProvider);
+	HandlerParser handlerParser() {
+		return new HandlerParser();
 	}
+
+	@Bean
+	RecordingCustomizingHandlerInterceptor recordingCustomizingHandlerInterceptor(HandlerParser handlerParser) {
+		return new RecordingCustomizingHandlerInterceptor(handlerParser);
+	}
+
+	@Bean
+	ObservabilityWebMvcConfigurer observabilityWebMvcConfigurer(RecordingCustomizingHandlerInterceptor interceptor) {
+		return new ObservabilityWebMvcConfigurer(interceptor);
+	}
+
+//
+//	@Bean
+//	RecordingCustomizingAsyncHandlerInterceptor recordingCustomizingAsyncHandlerInterceptor(HandlerParser handlerParser) {
+//		return new RecordingCustomizingAsyncHandlerInterceptor(handlerParser);
+//	}
 
 	/**
 	 * {@link WebMvcConfigurer} to add metrics interceptors.
 	 */
-	static class MetricsWebMvcConfigurer implements WebMvcConfigurer {
+	static class ObservabilityWebMvcConfigurer implements WebMvcConfigurer {
 
-		private final MeterRegistry meterRegistry;
+		private final RecordingCustomizingHandlerInterceptor interceptor;
 
-		private final WebMvcTagsProvider tagsProvider;
-
-		MetricsWebMvcConfigurer(MeterRegistry meterRegistry, WebMvcTagsProvider tagsProvider) {
-			this.meterRegistry = meterRegistry;
-			this.tagsProvider = tagsProvider;
+		ObservabilityWebMvcConfigurer(RecordingCustomizingHandlerInterceptor interceptor) {
+			this.interceptor = interceptor;
 		}
 
 		@Override
 		public void addInterceptors(InterceptorRegistry registry) {
-//			registry.addInterceptor(new LongTaskTimingHandlerInterceptor(this.meterRegistry, this.tagsProvider));
+			registry.addInterceptor(this.interceptor);
 		}
 
 	}
