@@ -15,10 +15,10 @@ import org.springframework.boot.context.metrics.buffering.BufferingApplicationSt
 import org.springframework.boot.context.metrics.buffering.StartupTimeline;
 import org.springframework.core.log.LogAccessor;
 import org.springframework.core.metrics.StartupStep;
-import org.springframework.observability.event.Recorder;
-import org.springframework.observability.event.interval.IntervalEvent;
-import org.springframework.observability.event.interval.IntervalRecording;
-import org.springframework.observability.event.tag.Cardinality;
+import org.springframework.core.observability.event.Recorder;
+import org.springframework.core.observability.event.interval.IntervalEvent;
+import org.springframework.core.observability.event.interval.IntervalRecording;
+import org.springframework.core.observability.event.tag.Cardinality;
 import org.springframework.util.StringUtils;
 
 import static java.util.stream.Collectors.toMap;
@@ -112,16 +112,16 @@ public class ObservabilityEndpoint {
 		}
 		String name = node.startupStep.getName();
 		IntervalRecording<?> recording = recorder.recordingFor(new IntervalEvent() {
-			@Override
-			public String getLowCardinalityName() {
-				return nameFromEvent(name);
-			}
+					@Override
+					public String getLowCardinalityName() {
+						return nameFromEvent(name);
+					}
 
-			@Override
-			public String getDescription() {
-				return "";
-			}
-		}).tag(org.springframework.observability.event.tag.Tag.of("event", name, Cardinality.HIGH))
+					@Override
+					public String getDescription() {
+						return "";
+					}
+				}).tag(org.springframework.core.observability.event.tag.Tag.of("event", name, Cardinality.HIGH))
 				.start(node.startTimeNanos, node.startTimeNanos);
 		StartupStep.Tags tags = node.startupStep.getTags();
 		if (tags != null) {
@@ -131,7 +131,7 @@ public class ObservabilityEndpoint {
 				if (key.equals("beanName") || key.equals("postProcessor")) {
 					recording.highCardinalityName(EventNameUtil.toLowerHyphen(name(value)));
 				}
-				recording.tag(org.springframework.observability.event.tag.Tag.of(EventNameUtil.toLowerHyphen(key), value, Cardinality.HIGH));
+				recording.tag(org.springframework.core.observability.event.tag.Tag.of(EventNameUtil.toLowerHyphen(key), value, Cardinality.HIGH));
 			}
 		}
 
@@ -151,7 +151,7 @@ public class ObservabilityEndpoint {
 	private String nameFromEvent(String name) {
 		String[] split = name.split("\\.");
 		if (split.length > 1) {
-			return split[split.length - 2] + "-" + split[split.length -1];
+			return split[split.length - 2] + "-" + split[split.length - 1];
 		}
 		return name;
 	}
@@ -231,8 +231,11 @@ public class ObservabilityEndpoint {
 
 	static class Node {
 		private final StartupStep startupStep;
+
 		private final long startTimeNanos;
+
 		private final long endTimeNanos;
+
 		List<Node> children = new ArrayList<>();
 
 		Node(StartupTimeline.TimelineEvent timelineEvent) {
