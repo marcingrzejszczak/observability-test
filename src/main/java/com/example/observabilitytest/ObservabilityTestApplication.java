@@ -6,6 +6,8 @@ import java.net.InetSocketAddress;
 
 import brave.Tracing;
 import brave.sampler.Sampler;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import com.sun.net.httpserver.HttpServer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.prometheus.PrometheusConfig;
@@ -17,6 +19,9 @@ import zipkin2.reporter.brave.ZipkinSpanHandler;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.observability.bridge.brave.bridge.BraveBaggageManager;
+import org.springframework.boot.autoconfigure.observability.bridge.brave.bridge.BraveTracer;
+import org.springframework.boot.autoconfigure.observability.reporter.zipkin.RestTemplateSender;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
 import org.springframework.context.annotation.Bean;
@@ -27,9 +32,6 @@ import org.springframework.core.observability.listener.metrics.MicrometerRecordi
 import org.springframework.core.observability.listener.tracing.DefaultTracingRecordingListener;
 import org.springframework.core.observability.time.Clock;
 import org.springframework.core.observability.tracing.Tracer;
-import org.springframework.observability.tracing.brave.bridge.BraveBaggageManager;
-import org.springframework.observability.tracing.brave.bridge.BraveTracer;
-import org.springframework.observability.tracing.reporter.zipkin.RestTemplateSender;
 import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
@@ -38,6 +40,19 @@ public class ObservabilityTestApplication {
 	public static void main(String[] args) throws IOException {
 //		manual(args);
 		bufferingStartup(args);
+	}
+
+	@Bean(destroyMethod = "stop")
+	WireMockServer wireMockServer() {
+		WireMockServer wireMockServer =  new WireMockServer(0);
+		wireMockServer.start();
+		wireMockServer.givenThat(WireMock.get(WireMock.anyUrl()).willReturn(WireMock.aResponse().withStatus(200)));
+		return wireMockServer;
+	}
+
+	@Bean
+	RestTemplate restTemplate() {
+		return new RestTemplate();
 	}
 
 	private static void bufferingStartup(String[] args) {

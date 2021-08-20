@@ -1,5 +1,8 @@
 package com.example.observabilitytest;
 
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
@@ -14,9 +17,12 @@ public class ObservabilityTestController {
 
 	private final RestTemplate restTemplate;
 
-	public ObservabilityTestController(ObjectProvider<MyService> myService, RestTemplate restTemplate) {
+	private final WireMockServer wireMockServer;
+
+	public ObservabilityTestController(ObjectProvider<MyService> myService, RestTemplate restTemplate, WireMockServer wireMockServer) {
 		this.myService = myService;
 		this.restTemplate = restTemplate;
+		this.wireMockServer = wireMockServer;
 	}
 
 	@GetMapping("/foo")
@@ -26,10 +32,9 @@ public class ObservabilityTestController {
 
 	@GetMapping("/test")
 	String test() {
-		String object = restTemplate.getForObject("https://httpbin.org/headers", String.class);
-		if (!object.contains("B3")) {
-			throw new IllegalStateException("No B3 header propagated");
-		}
+		String object = restTemplate.getForObject(wireMockServer.baseUrl() + "/", String.class);
+		wireMockServer.verify(WireMock.getRequestedFor(WireMock.urlEqualTo("/"))
+				.withHeader("X-B3-TraceId", WireMock.matching(".*")));
 		return object;
 	}
 }
