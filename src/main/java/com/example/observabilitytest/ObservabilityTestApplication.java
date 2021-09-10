@@ -4,35 +4,33 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 
-import brave.Tracing;
-import brave.sampler.Sampler;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveBaggageManager;
+import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveTracer;
+import org.springframework.boot.autoconfigure.observability.tracing.reporter.zipkin.core.RestTemplateSender;
+import org.springframework.boot.builder.SpringApplicationBuilder;
+import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
+import org.springframework.context.annotation.Bean;
+import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
+import org.springframework.web.client.RestTemplate;
+
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.sun.net.httpserver.HttpServer;
+
+import brave.Tracing;
+import brave.sampler.Sampler;
+import io.micrometer.core.event.listener.composite.AllMatchingCompositeRecordingListener;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.listener.tracing.DefaultTracingRecordingListener;
+import io.micrometer.core.instrument.tracing.Tracer;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
 import zipkin2.Span;
 import zipkin2.codec.SpanBytesEncoder;
 import zipkin2.reporter.AsyncReporter;
 import zipkin2.reporter.brave.ZipkinSpanHandler;
-
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.observability.bridge.brave.bridge.BraveBaggageManager;
-import org.springframework.boot.autoconfigure.observability.bridge.brave.bridge.BraveTracer;
-import org.springframework.boot.autoconfigure.observability.reporter.zipkin.RestTemplateSender;
-import org.springframework.boot.builder.SpringApplicationBuilder;
-import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
-import org.springframework.context.annotation.Bean;
-import org.springframework.core.metrics.observability.ObservabilityApplicationStartup;
-import org.springframework.core.observability.event.SimpleRecorder;
-import org.springframework.core.observability.event.listener.composite.AllMatchingCompositeRecordingListener;
-import org.springframework.core.observability.listener.metrics.MicrometerRecordingListener;
-import org.springframework.core.observability.listener.tracing.DefaultTracingRecordingListener;
-import org.springframework.core.observability.time.Clock;
-import org.springframework.core.observability.tracing.Tracer;
-import org.springframework.web.client.RestTemplate;
 
 @SpringBootApplication
 public class ObservabilityTestApplication {
@@ -65,11 +63,10 @@ public class ObservabilityTestApplication {
 		AsyncReporter<Span> reporter = reporter();
 		Tracer tracer = tracer(reporter);
 		MeterRegistry meterRegistry = meterRegistry();
+		meterRegistry.config().recordingListener(
+				new AllMatchingCompositeRecordingListener(new DefaultTracingRecordingListener(tracer)));
 		ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(
-				new SimpleRecorder<>(
-						new AllMatchingCompositeRecordingListener(
-								new DefaultTracingRecordingListener(tracer), new MicrometerRecordingListener(meterRegistry))
-						, Clock.SYSTEM));
+				meterRegistry);
 		try {
 			new SpringApplicationBuilder(ObservabilityTestApplication.class)
 					.applicationStartup(observabilityApplicationStartup)
