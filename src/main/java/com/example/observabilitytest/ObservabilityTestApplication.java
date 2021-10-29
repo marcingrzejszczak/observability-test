@@ -114,7 +114,7 @@ public class ObservabilityTestApplication {
 	}
 
 	@Bean
-	CommandLineRunner myCommandLineRunner(RestTemplate restTemplate) {
+	CommandLineRunner myCommandLineRunner() {
 		return args -> {
 			/*String object = restTemplate.getForObject("https://httpbin.org/headers", String.class);
 			if (!object.contains("B3")) {
