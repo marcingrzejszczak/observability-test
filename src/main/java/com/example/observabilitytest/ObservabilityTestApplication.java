@@ -6,8 +6,10 @@ import java.net.InetSocketAddress;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.observability.AllMatchingCompositeRecordingListener;
 import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveBaggageManager;
 import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveTracer;
+import org.springframework.boot.autoconfigure.observability.tracing.listener.DefaultTracingRecordingListener;
 import org.springframework.boot.autoconfigure.observability.tracing.reporter.zipkin.core.RestTemplateSender;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.context.metrics.buffering.BufferingApplicationStartup;
@@ -21,9 +23,7 @@ import com.sun.net.httpserver.HttpServer;
 
 import brave.Tracing;
 import brave.sampler.Sampler;
-import io.micrometer.core.event.listener.composite.AllMatchingCompositeRecordingListener;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.listener.tracing.DefaultTracingRecordingListener;
 import io.micrometer.core.instrument.tracing.Tracer;
 import io.micrometer.prometheus.PrometheusConfig;
 import io.micrometer.prometheus.PrometheusMeterRegistry;
@@ -63,7 +63,7 @@ public class ObservabilityTestApplication {
 		AsyncReporter<Span> reporter = reporter();
 		Tracer tracer = tracer(reporter);
 		MeterRegistry meterRegistry = meterRegistry();
-		meterRegistry.config().recordingListener(
+		meterRegistry.config().timerRecordingListener(
 				new AllMatchingCompositeRecordingListener(new DefaultTracingRecordingListener(tracer)));
 		ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(
 				meterRegistry);
