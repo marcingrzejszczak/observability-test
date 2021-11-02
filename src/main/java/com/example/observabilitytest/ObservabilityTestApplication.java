@@ -6,7 +6,6 @@ import java.net.InetSocketAddress;
 
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.boot.autoconfigure.observability.AllMatchingCompositeRecordingListener;
 import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveBaggageManager;
 import org.springframework.boot.autoconfigure.observability.tracing.brave.bridge.BraveTracer;
 import org.springframework.boot.autoconfigure.observability.tracing.listener.DefaultTracingRecordingListener;
@@ -63,8 +62,7 @@ public class ObservabilityTestApplication {
 		AsyncReporter<Span> reporter = reporter();
 		Tracer tracer = tracer(reporter);
 		MeterRegistry meterRegistry = meterRegistry();
-		meterRegistry.config().timerRecordingListener(
-				new AllMatchingCompositeRecordingListener(new DefaultTracingRecordingListener(tracer)));
+		meterRegistry.config().timerRecordingListener(new DefaultTracingRecordingListener(tracer));
 		ObservabilityApplicationStartup observabilityApplicationStartup = new ObservabilityApplicationStartup(
 				meterRegistry);
 		try {
